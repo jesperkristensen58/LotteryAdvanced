@@ -2,6 +2,10 @@
 
 This project is the result of a Solidity test about building a Lottery contract with a corresponding Random number generator.
 
+Prereqs:
+
+You will need a `.env` file with your Alchemy and Goerli private key (NOTE: do not use an account where you have real money on mainnet).
+
 Run:
 
 ```shell
