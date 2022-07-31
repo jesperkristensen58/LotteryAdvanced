@@ -1,13 +1,28 @@
-# Sample Hardhat Project
+# Lottery Contract
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+This project is the result of a Solidity test about building a Lottery contract with a corresponding Random number generator.
 
-Try running some of the following tasks:
+Run:
 
 ```shell
-npx hardhat help
 npx hardhat test
-GAS_REPORT=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.js
+```
+To compile and test.
+
+Then
+
+```shell
+npx hardhat run scripts/deploy.js --network goerli
+```
+To deploy to Goerli.
+
+To compile in standalone mode, run:
+
+```shell
+npx hardhat compile
+```
+
+To test:
+```shell
+npx hardhat test
 ```
