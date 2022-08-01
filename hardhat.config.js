@@ -1,5 +1,5 @@
 require("@nomicfoundation/hardhat-toolbox");
-require('dotenv').config()
+require('dotenv').config()  // create your local .env file (see .env.example for how to define the variables)
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {

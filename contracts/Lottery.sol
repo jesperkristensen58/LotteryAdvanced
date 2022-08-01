@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "sortition-sum-tree-factory/contracts/SortitionSumTreeFactory.sol";
 import "@pooltogether/uniform-random-number/contracts/UniformRandomNumber.sol";
 
-/*
+/**
 @notice The interface of the RNG contract
 @dev we require a request() function to get the request ID back.
 @dev we require a getRandomNumber() function to get the random number corresponding to the request ID.
@@ -16,7 +16,7 @@ interface RNGInterface {
     function getRandomNumber(bytes32 requestID) external view returns(uint256);
 }
 
-/*
+/**
 @title Lottery Contract. Users can enter into the lottery and be picked at random with winning probability proportional to the contributed amount of ether.
 @author Jesper Kristensen
 @notice You can enter the lottery and your winnings are in proportion to amount contributed. Simply send ether to the contract address to enter.
@@ -32,16 +32,18 @@ contract Lottery is Ownable, Pausable {
     bytes32 private tree_key;
     uint256 constant private MAX_TREE_LEAVES = 5;
 
-    // Odds weighed by contribution from each participant
+    /// Odds weighed by contribution from each participant
     using SortitionSumTreeFactory for SortitionSumTreeFactory.SortitionSumTrees;
     SortitionSumTreeFactory.SortitionSumTrees sumTreeFactory;
 
-    /// @notice construct the Lottery contract and set the duration and point to the RNG contract which must already be deployed
-    /// @param _lotteryDurationSeconds The number of seconds the Lottery is open for. From now till now + _lotteryDurationSeconds the lottery contract accepts wagers from anyone. This can be changed post-deployment by the contract owner.
-    /// @param _rngContractAddress The contract address of the Random Number Generator (RNG) deployed contract. This can be changed post-deployment by the contract owner.
+    /**
+    @notice construct the Lottery contract and set the duration and point to the RNG contract which must already be deployed
+    @param _lotteryDurationSeconds The number of seconds the Lottery is open for. From now till now + _lotteryDurationSeconds the lottery contract accepts wagers from anyone. This can be modified post-deployment by the contract owner.
+    @param _rngContractAddress The contract address of the Random Number Generator (RNG) deployed contract. This can be modified post-deployment by the contract owner.
+    */
     constructor(uint256 _lotteryDurationSeconds, address _rngContractAddress) public {
         // Create the lottery contract by setting the initial duration from the creator and set the RNG contract address too
-        assert(_lotteryDurationSeconds > 0);
+        require(_lotteryDurationSeconds > 0, "Please provide a positive value for the duration of the lottery!");
         lotteryDurationSeconds = _lotteryDurationSeconds;
         lotteryEndTime = now + lotteryDurationSeconds;
 
@@ -50,11 +52,14 @@ contract Lottery is Ownable, Pausable {
 
         tree_key = getTreeKey();
         sumTreeFactory.createTree(tree_key, MAX_TREE_LEAVES);  // start our sortition sum tree
-        assert(!paused());
+        require(!paused(), "FATAL: Expected contract to be unpaused!");
     }
 
-    /// @notice Anyone can send ether to the contract and will then automatically get entered into the contract if the Lottery is still active. Trigger an update to the Lottery by sending 0 eth.
-    /// @dev the Lottery being active means it is not paused. Pausing it will mean that any eth sent to the contract are lost.
+    
+    /**
+    @notice Anyone can send ether to the contract and will then automatically get entered into the contract if the Lottery is still active. Trigger an update to the Lottery by sending 0 eth.
+    @dev the Lottery being active means it is not paused. Pausing it will mean that any eth sent to the contract are lost.
+    */
     receive() external payable {
         // handle all loterry contributions via payable
         finished = isLotteryFinished();
@@ -83,14 +88,14 @@ contract Lottery is Ownable, Pausable {
 
             // did a winner get picked?
             if (winner != address(0)) {
-                assert(paused());
+                require(paused(), "FATAL: Contract expected to be paused!");
                 
                 // reset internal state first
                 _reset();
 
                 // then send all of our funds to winner
                 winner.transfer(address(this).balance);
-                assert(address(this).balance == 0);
+                require(address(this).balance == 0, "FATAL: The transfer to the winner failed!");
                 return;
             }
         }
@@ -102,13 +107,15 @@ contract Lottery is Ownable, Pausable {
         enter();
     }
 
-    /// @dev make sure we cannot send ether *and* calldata
+    /**
+    @dev make sure we cannot send ether *and* calldata
+    */
     fallback() external {
         // wagers should be submitted without calldata
         revert("Unknown error. Hint: Maybe submit wager without calldata?");
     }
 
-    /*
+    /**
     @notice Set a new lottery duration (only owner is allowed to call this function). Should only be called after the lottery is over and before the new lottery starts.
     @param newLotteryDurationSeconds The new Lottery duration in seconds. This does change the current ongoing Lottery as well so be careful!
     */
@@ -117,7 +124,7 @@ contract Lottery is Ownable, Pausable {
         lotteryDurationSeconds = newLotteryDurationSeconds;
     }
 
-    /*
+    /**
     @notice Set a new contract address of the RNG contract. Can be used to switch to a new random number generator.
     @dev The new RNG contract is instantiated against the interface in this file at the top.
     @param newRNGContractAddress The new RNG contract address to change to.
@@ -128,7 +135,7 @@ contract Lottery is Ownable, Pausable {
         RNGContract = RNGInterface(rngContractAddress);
     }
 
-    /*
+    /**
     @notice Allow the owner to pause this contract.
     */
     function pause() external onlyOwner {
@@ -138,7 +145,7 @@ contract Lottery is Ownable, Pausable {
 
     // *---------------------- PRIVATE ----------------------*
 
-    /*
+    /**
     @notice Enter the lottery. The caller is entered into the lottery by the amount sent to the contract.
     @dev this adds a leave to the Sortition Sum Tree.
     */
@@ -150,12 +157,17 @@ contract Lottery is Ownable, Pausable {
         sumTreeFactory.set(tree_key, new_stake, bytes32(uint256(msg.sender)));
     }
 
+    /**
+    @notice get the stake amount of a user in wei. This is proportional to their probability of winning the lottery.
+    @param _address the address of the staker/user to get the stake amount of.
+    @return the stake amount of the user in wei.
+    */
     function stakeOf(address _address) external view onlyOwner returns (uint256) {
         // Get the stake of any address
         return sumTreeFactory.stakeOf(tree_key, bytes32(uint256(_address)));
     }
 
-    /*
+    /**
     @notice A winner is picked at random. The more a person has contributed, the higher the chances of winning are.
     @param randomNumber The random number to pick a winner from.
     @return The winner of the Lottery. Will be 0x0 if no contributions have been made in the lottery.
@@ -173,7 +185,7 @@ contract Lottery is Ownable, Pausable {
         return selected;
     }
 
-    /*
+    /**
     @notice Check if the Lottery is finished. Finish it if relevant.
     @dev this can update the internal state to paused.
     @return True if the Lottery is finished.
@@ -193,7 +205,7 @@ contract Lottery is Ownable, Pausable {
         return false;
     }
 
-    /*
+    /**
     @notice Reset the Lottery state. Prepares for a new Lottery to start.
     @dev unpauses the Lottery contract.
     */
@@ -207,12 +219,12 @@ contract Lottery is Ownable, Pausable {
 
         _unpause();
 
-        assert(!paused());
+        require(!paused(), "FATAL: Contract expected to be unpaused after reset!");
 
         // a new lottery has begun
     }
 
-    /*
+    /**
     @notice Compute and return a new tree key.
     @dev this key is what can start a new tree.
     @return the new sortition key
@@ -222,7 +234,7 @@ contract Lottery is Ownable, Pausable {
 
         lottery_number += 1;
         bytes32 new_tree_key = keccak256(abi.encodePacked("LotteryTest/Lottery", lottery_number));
-        assert(curr_key != new_tree_key);
+        require(curr_key != new_tree_key, "FATAL: The new key of the Sortition tree must differ from the previous one!");
         
         return new_tree_key;
     }

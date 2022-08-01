@@ -35,7 +35,7 @@ contract RNG {
             // the number is ready! Get it and return it
             the_random_number = mapRequestIDToNumber[requestID];
 
-            assert(the_random_number > 0);
+            require(the_random_number > 0, "FATAL: The random number must be >0!");
         }
 
         return the_random_number;
